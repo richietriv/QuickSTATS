@@ -1,0 +1,19 @@
+{
+  "name": "openlayers_3",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "vite",
+    "build": "vite build",
+    "serve": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^2.6.7"
+  },
+  "dependencies": {
+    "express": "^4.17.2",
+    "ol": "latest",
+    "ol-ext": "^3.2.18",
+    "pg": "^8.7.1",
+    "proj4": "^2.7.5"
+  }
+}
