@@ -1,11 +1,13 @@
 const { Client } = require('pg')
 const express = require('express')
+const cors = require('cors')
 const app = express();
-const path = require('path')
+
+app.use(cors({
+    origin: 'http://localhost:3000'
+}))
 app.use(express.json())
 
-// app.use(express.static(path.join(__dirname, 'public')))
-// app.use(express.static(path.join(__dirname, "node_modules")));
 
  function connectToDB(){
     const client = new Client({
@@ -31,7 +33,6 @@ app.use(express.json())
         await client.query('COMMIT')
         
         
-    
     }
     catch (err) {
         console.log(err)
@@ -39,9 +40,7 @@ app.use(express.json())
     finally {
         await client.end()
         console.log('connection closed')
-    }
-
-    
+    }  
 }
 
 async function execute() {
@@ -60,12 +59,9 @@ async function execute() {
     finally {
         await client.end()
         console.log('connection closed')
-    }
-
-    
+    } 
 }
 
-// app.get('/', (req, res) => res.sendFile(`${__dirname}/public/index2.html`))
 
 app.get('/database',  async (req, res) => {
     const q =  await execute()

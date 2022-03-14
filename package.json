@@ -10,10 +10,12 @@
     "vite": "^2.6.7"
   },
   "dependencies": {
+    "cors": "^2.8.5",
     "express": "^4.17.2",
     "ol": "latest",
     "ol-ext": "^3.2.18",
     "pg": "^8.7.1",
-    "proj4": "^2.7.5"
+    "proj4": "^2.7.5",
+    "sweetalert": "^2.1.2"
   }
 }

@@ -1,20 +1,16 @@
 import './style.css';
 import { Map, View } from 'ol';
-import TileLayer from 'ol/layer/Tile';
-import OSM from 'ol/source/OSM';
-import TileWMS from 'ol/source/TileWMS';
 import Draw from 'ol/interaction/Draw';
 import VectorL from 'ol/layer/Vector';
 import VectorS from 'ol/source/Vector';
-import Overlay from 'ol/Overlay';
 import { Control, defaults as defaultControls } from 'ol/control';
 import { register } from 'ol/proj/proj4';
 import proj4 from 'proj4';
 import MousePosition from 'ol/control/MousePosition'
 import * as olCoordinate from 'ol/coordinate';
 import {defaults} from 'ol/interaction';
-
-
+import swal from 'sweetalert';
+import { baseMap, burst, test, streetL, ukbounds } from './layerConnections';
 
 
 
@@ -28,70 +24,20 @@ proj4.defs(
 register(proj4);
 
 
-const container = document.getElementById('popup');
-const content = document.getElementById('popup-content');
-const closer = document.getElementById('popup-closer');
-
-const overlay = new Overlay({
-  element: container,
-  autoPan: true,
-  autoPanAnimation: {
-    duration: 1500,
-  },
-});
-
-
-
- const baseMap =  new TileLayer({
-    source: new OSM(),
-  });
-
-  const burst = new TileLayer({
-    source: new TileWMS({
-      url: 'http://localhost:8080/geoserver/wms',
-      params: {'LAYERS': 'test:burst', 'TILED': true},
-      serverType: 'geoserver',
-      transition: 0,
-    }),
-  });
-  
-  
-
-  const test = new TileLayer({
-    source: new TileWMS({
-      url: 'http://localhost:8080/geoserver/wms',
-      params: {'LAYERS': 'test:test', 'TILED': true},
-      serverType: 'geoserver',
-      transition: 0,
-      
-    }),
-  });
-
-  const streetL = new TileLayer({
-    source: new TileWMS({
-      url: 'http://localhost:8080/geoserver/wms',
-      params: {'LAYERS': 'test:street_lighting', 'TILED': true},
-      serverType: 'geoserver',
-      transition: 0,
-      
-    }),
-  });
-
-
 let mapView = new View({
   center: [339861.7958798604, 100319.43155530083],
   zoom: 10,
   projection: 'EPSG:27700',
   
-  
-  
+
 });
 
 
 // Global variables
-let draw
+let featureGeom
 let draw_on = false
 let selectedGeomType
+let featuresGeoJson
 
 
 // custom control
@@ -119,31 +65,17 @@ class drawFeatureButton extends Control {
   }
   
   startStopDraw() {
-    console.log(draw_on)
-     $('#featureSelect').modal('show')
-    // if(draw_on == false) {
-    //   $('#featureSelect').modal('show')
-    // } else {
-    //   map.removeInteraction(draw)
-    //   console.log(draw)
-    //   draw_on = false
-    // }
+     $('#featureSelect').modal('show');
   }
-
-  
-}
-
-
-
-
+};
 
 
 const map = new Map({
   controls: defaultControls().extend([new drawFeatureButton()]), // adds drawing control button
   target: 'map',
-  layers: [baseMap, streetL, test, burst],
+  layers: [baseMap, ukbounds, streetL, test, burst],
   view: mapView,
-  overlays: [overlay],
+  //overlays: [overlay],
   interactions: defaults({ doubleClickZoom: false }) // disables double click zoom
 });
 
@@ -161,7 +93,7 @@ map.addLayer(drawLayer)
 
 function initiateDraw(geomType) {
   
-  console.log(geomType);
+  console.log(geomType, 'type initiated');
   selectedGeomType = geomType
    const draw = new Draw({
     type: geomType,
@@ -172,24 +104,37 @@ function initiateDraw(geomType) {
   // stop drawing
   document.getElementById('stp-drw-btn').addEventListener('click', function() {
     map.removeInteraction(draw);
+    draw_on = false
   });
 
   $('#featureSelect').modal('hide')
   drawSource.clear()
   map.addInteraction(draw)
   draw_on = true
-  console.log(draw_on)
 
   draw.on('drawstart', function(evt){
     console.log('drawing')
     draw_on = true
   })
   draw.on('drawend', function(evt){
-  map.removeInteraction(draw)
-  $('#formselectmodal').modal('show')
+    featureGeom = evt.feature.getGeometry().flatCoordinates;
+    map.removeInteraction(draw)
+
+    // evaluates the geometry type. If linestring and over 10k, an error alert will be activated
+  if(geomType =='LineString') {
+    if(evt.feature.getGeometry().getLength() > 10000) {
+      setTimeout(errorAlert, 500);
+      
+      
+    } else {
+      $('#formselectmodal').modal('show')
+    }
+    console.log(evt.feature.getGeometry().getLength())
+  } else {
+    $('#formselectmodal').modal('show')
+  }
   draw_on = false
-  
-})}
+})};
 
 
 
@@ -202,35 +147,145 @@ document.getElementById('linestring-btn').addEventListener('click', function() {
 document.getElementById('point-btn').addEventListener('click', function() {
   initiateDraw.bind(this)('Point');
 });
+// 
+function geoQuery(fGeoJson) {
+  const getTab = document.getElementById('myTab')
+  const getTabContent = document.getElementById('myTabContent')
+  getTabContent.innerHTML = ''
+  getTab.innerHTML = ''
+
+  // the following lines of code build the tabs from the Geojson
+  fGeoJson.forEach((item, index) => {
+    
+
+    let regexMatchTitle = fGeoJson[0].id.match(/.+?(?=\.\d+$)/);
+
+    // activates the tab corresponding to the 0 index
+    let activeTabTop
+    let activeTabBottom
+    let activeTabSelected
+    if (index == 0) {
+      
+      activeTabTop = ' active'
+      activeTabBottom = ' show active'
+      activeTabSelected = true
+
+    } else {
+      activeTabTop = ''
+      activeTabBottom = ''
+      activeTabSelected = false
+    };
+    let newListElem = document.createElement('li')
+    newListElem.innerHTML = `<a class="nav-link${activeTabTop}" id="feature${index}-tab" data-toggle="tab" href="#feature${index}" role="tab"aria-controls="feature${index}" aria-selected="${activeTabSelected}">${regexMatchTitle}</a>`
+    getTab.append(newListElem)
+
+    
+    let setDivAttrs = document.createElement('div')
+    setDivAttrs.setAttribute('class', `tab-pane fade${activeTabBottom}`)
+    setDivAttrs.setAttribute('id', `feature${index}`)
+    setDivAttrs.setAttribute('role', 'tabpanel')
+    setDivAttrs.setAttribute('aria-labelledby', `feature${index}-tab`)
+    getTabContent.append(setDivAttrs)
+
+    const appendElem = document.getElementById(`feature${index}`)
+
+    // build card elements
+    let setDivAttrs2 = document.createElement('div')
+    setDivAttrs2.setAttribute('class', 'card-body')
+    appendElem.append(setDivAttrs2)
+
+    const setH5Attrs = document.createElement('h5')
+    setH5Attrs.setAttribute('class', 'card-header')
+    setH5Attrs.setAttribute('id', `attr-title${index}`)
+    setDivAttrs2.append(setH5Attrs)
+
+    // build the ul elements where the the li tags will be appended
+    const setUlAttrs = document.createElement('ul')
+    setUlAttrs.setAttribute('class', 'list-group list-group-flush')
+    setUlAttrs.setAttribute('id', `attr-list${index}`)
+    setDivAttrs2.append(setUlAttrs)
 
 
+    const attrPopup = document.getElementById(`attr-list${index}`);
+    document.getElementById(`attr-list${index}`).innerHTML = '';
+    document.getElementById(`attr-title${index}`).innerText = regexMatchTitle;
+    let featuresProperties2 = item.properties
+    
+    for (let key in featuresProperties2) {
+      if (featuresProperties2.hasOwnProperty(key) && key != 'OBJECTID') {
+        
+          // build the li tags to contain the feature attributes         
+          let newItem2 = document.createElement('li');
+          newItem2.setAttribute('class', 'list-group-item')
+          newItem2.innerHTML = `<strong>${key}: </strong>${featuresProperties2[key]}`;
+          attrPopup.append(newItem2)
+      }
+  }
 
-// test
+  console.log(getTabContent)
+});
+
+}
+$('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+  var currId = $(e.target).attr("id");
+  
+  //just for demo
+  $('#lastTab').html(currId);
+  console.log(currId)
+})
+
+// 123test button
 document.getElementById('test-button').addEventListener('click', function() {
-  console.log(selectedGeomType, 'wahoo')
-  //saveFeatureButton()
+  console.log(document.querySelector('myTabContent'))
+  
+  geoQuery.bind(this)(featuresGeoJson)
+  console.log('draw on:', draw_on, selectedGeomType, featureGeom)
+  $('#testmodal').modal('show')
+  $('#myTab a').click(function (e) {
+    e.preventDefault()
+    $(this).tab('show')
+  })
 });
 
 
 
-
-
-
-function saveFeatureButton() {
-  console.log('were here')
-    const saveButtons = document.getElementById('commit-search-btn').style.visibility = "hidden";
-    
-    // console.log(saveButtons)
-    // let newButtonElem = document.createElement('button')
-    // newButtonElem.innerHTML = 'type="button" class="btn btn-primary" id="save-feat-btn" data-bs-dismiss="modal">save<'
-
-    
-    // saveButtons.appendChild(newButtonElem);
+function successAlert() {
+  swal({
+    title: "Search Successful!",
+    icon: "success",
+    button: "OK",
+  });
   
 }
 
+function errorAlert() {
+  swal({
+    title: "Error!",
+    text: 'Searches cannot exceed 10k',
+    icon: "error",
+    button: "OK",
+  });
+  
+}
 
-async function SaveDatatodb(x, y) {
+// validate submit form and submit search event listener
+const saveButton = document.getElementById('form-1')
+saveButton.addEventListener('submit', function(event){
+  event.preventDefault()
+  let emailAddress = document.getElementById('email-addr').value
+  let reference = document.getElementById('reference').value
+  $('#formselectmodal').modal('hide')
+
+  setTimeout(successAlert, 500);
+  console.log(emailAddress, reference, featureGeom)
+  SaveDatatodb(featureGeom)
+  
+})
+    
+
+
+
+async function SaveDatatodb(geometryArray) {
   try {
     const result = await fetch('http://localhost:8111/database', {
       method: "POST",
@@ -238,9 +293,9 @@ async function SaveDatatodb(x, y) {
         'Content-Type': 'application/json'
       },
 
-      body: JSON.stringify({"col_1": "like fuckin", "geometry": {"type": "Point", "coordinates": [x, y]}})
+      body: JSON.stringify({"col_1": "This is working!", "geometry": {"type": "Point", "coordinates": geometryArray}})
 
-    })
+    });
     console.log(result)
   }
   catch (err) {
@@ -248,7 +303,80 @@ async function SaveDatatodb(x, y) {
 
   } 
     
-}
+};
+
+
+// add mouse position to application as easting and northing
+const mousePosition = new MousePosition({
+  className: 'mousePosition',
+  projection: 'EPSG 27700',
+  coordinateFormat: coordinate => {
+    return olCoordinate.format(coordinate, '{x}, {y}')}
+});
+map.addControl(mousePosition);
+
+
+
+// get feature info as a Geojson display with modal
+map.on('singleclick', (evt) => {
+  const viewResolution = mapView.getResolution();
+  const url = streetL.getSource().getFeatureInfoUrl(
+    evt.coordinate,
+    viewResolution,
+    'EPSG:27700',
+    {'INFO_FORMAT': 'application/json', 'QUERY_LAYERS': 'quickstats:street_lighting,quickstats:test', 'LAYERS':'quickstats:street_lighting,quickstats:test', 'FEATURE_COUNT': 10},
+
+  );
+ 
+  if (!draw_on) { // while drawing, the popup will not appear
+    if (url) {
+      fetch(url)
+        .then((response) => response.json())
+        .then((jsonResp) => {
+
+          if (jsonResp.features.length < 1) {
+            
+            console.log(jsonResp.features, 'nothing')
+          } else { 
+            geoQuery.bind(this)(jsonResp.features)
+            console.log('draw on:', draw_on, selectedGeomType, featureGeom)
+            $('#testmodal').modal('show')
+            $('#myTab a').click(function (e) {
+              e.preventDefault()
+              $(this).tab('show')
+            })
+
+
+          // let regexMatchTitle = jsonResp.features[0].id.match(/.+?(?=\.\d+$)/);
+
+          // const attrPopup = document.getElementById('attr-list');
+          // document.getElementById('attr-list').innerHTML = '';
+          // document.getElementById('attr-title').innerText = regexMatchTitle[0];
+        
+          //$('#feature-popup').modal('show');
+          
+          
+          
+          // featuresGeoJson = jsonResp.features
+          // let featuresProperties = jsonResp.features[0].properties
+          // for (let key in featuresProperties) {
+          //   if (featuresProperties.hasOwnProperty(key) && key != 'OBJECTID') {
+                
+                            
+          //       let newItem = document.createElement('li');
+          //       newItem.setAttribute('class', 'list-group-item')
+          //       newItem.innerHTML = `<strong>${key}: </strong>${featuresProperties[key]}`;
+          //       attrPopup.append(newItem)
+          //   }
+        //}     
+          // console.log(JSON.stringify(jsonResp.features[0].id))
+          }    
+        })
+        .catch((err) => {
+        throw(err)}); 
+    }
+  }
+});
 
 
 // draw.on('drawend', function(evt){
@@ -266,124 +394,3 @@ async function SaveDatatodb(x, y) {
 //  // console.log(clickedCoo)
 
 // })
-
-
-// add mouse position to application as easting and northing
-const mousePosition = new MousePosition({
-  className: 'mousePosition',
-  projection: 'EPSG 27700',
-  coordinateFormat: coordinate => {
-    return olCoordinate.format(coordinate, '{x}, {y}')}
-});
-map.addControl(mousePosition);
-
-
-
-
-
-
-
-// var hello = new button (
-  
-//     {	html: '<div class="btn-event"></div>',
-//       className: "draw-btn",
-//       title: "The button",
-//       handleClick: () =>
-//        {
-//         	if(on_off === 0) {
-//             // map.addInteraction(draw);
-//             let on_off = 1
-//             console.log(on_off)
-//             return on_off
-//         } if(on_off === 1) {
-//           map.removeInteraction(draw);
-//           console.log('hello!')
-//           return on_off
-//         }
-          
-//         }
-//     });
-// map.addControl(hello);
-
-
-// // The search control
-// var search = new Search(
-//   {	//target: $(".options").get(0),
-//     // Title to use in the list
-//     className: "search-btn",
-//     getTitle: function(f) { return f.name; },
-//     // Search result
-    
-    
-//   });
-// map.addControl (search);
-
-closer.onclick = () => {
-  overlay.setPosition(undefined);
-  closer.blur();
-  return false;
-};
-
-// get feature info as a Geojson
-// map.on('singleclick', (evt) => {
-//   content.innerHTML = ''
-//   overlay.setPosition(evt.coordinate);
-//   const viewResolution = mapView.getResolution();
-//   const url = streetL.getSource().getFeatureInfoUrl(
-//     evt.coordinate,
-//     viewResolution,
-//     'EPSG:27700',
-//     {'INFO_FORMAT': 'application/json'}
-//   );
-  
-//   if (url) {
-//     fetch(url)
-//       .then((response) => response.json())
-//       .then((jsonResp) => {
-//         content.innerHTML = `<h3><u>${jsonResp.features[0].id}</u></h3>`
-//         let featuresProperties = jsonResp.features[0].properties
-//         for (let key in featuresProperties) {
-//           if (featuresProperties.hasOwnProperty(key) && key != 'OBJECTID') {
-//               // console.log(key + " -> " + featuresProperties[key]);
-//               content.innerHTML += `<p><strong>${key}: </strong>${featuresProperties[key]}</p>`
-//           }
-//       }
-//         //document.getElementById('popup').innerHTML = JSON.stringify(featuresProperties);
-//         console.log(JSON.stringify(jsonResp.features[0].id))
-        
-//       })
-//       .catch((err) => {
-//       throw(err)});
-      
-//   } else {
-//     overlay.setPosition(undefined);
-//   }
-// });
-
-
-
-
-
-
-// map.on('singleclick', (evt) => {
-//   content.innerHTML = ''
-//   let resolution = mapView.getResolution();
-//   const url = streetL.getSource().getFeatureInfoUrl(evt.coordinate, resolution, 'EPSG: 27700', {
-//     'INFO_FORMAT' : 'application/json'
-  
-//   });
-//   console.log(viewResolution)
-
-
-  // if (ur) {
-  //   $.getJSON(url, function() {
-  //     let feature = data.features[0];
-  //     let props = feature.properties;
-  //     content.innerHTML = `<h3>RoadName : </h3> <p> ${props} </p>`
-  //     console.log(props)
-
-  //   })
-  // }
-//});
-
-
