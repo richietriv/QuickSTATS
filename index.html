@@ -83,7 +83,7 @@
           <!-- Modal 1: to begin drawing. Select point or line -->
       
       
-          <!-- Modal 2: search form -->
+          <!-- Modal 2: search form Point -->
           <div class="modal fade" id="formselectmodal" tabindex="-1" aria-labelledby="formselectmodalLabel" aria-hidden="true">
             <div class="modal-dialog">
               <div class="modal-content">
@@ -94,29 +94,29 @@
 
                 <!-- submit search form -->
                 <form id="form-1">
-                <div class="modal-body" style="text-align: left;">
+                <div class="modal-body" style="text-align: left;" id="form-modal-select">
                   
                     <div class="form-group">
-                      <label for="exampleFormControlInput1">Email address</label>
+                      <label for="select-email">Email address</label>
                       <input type="email" class="form-control" id="email-addr" placeholder="name@example.com" required>
                     </div>
                     <br>
                     <div class="form-group">
-                      <label for="exampleFormControlInput1">Reference</label>
+                      <label for="reference">Reference</label>
                       <input type="text" class="form-control" id="reference" placeholder="" required>
                     </div>
                     <br>
                     <div class="form-group">
-                      <label for="exampleFormControlSelect1">Enquiry Type</label>
-                      <select class="form-control" id="exampleFormControlSelect1" required="true">
+                      <label for="select-enquiry-type">Enquiry Type</label>
+                      <select class="form-control" id="select-enquiry-type" required="true">
                         <option>Initial Enquiry</option>
                         <option>Planned Works</option>
                       </select>
                     </div>
                     <br>
-                    <div class="form-group">
-                      <label for="exampleFormControlSelect1">Search Size</label>
-                      <select class="form-control" id="exampleFormControlSelect2" required="true">
+                    <div class="form-group" id="search-size">
+                      <label for="select-search-size">Search Size</label>
+                      <select class="form-control" id="select-search-size" required="true">
                         <option>~50m grid</option>
                         <option>~500m grid</option>
                       </select>
@@ -128,15 +128,16 @@
                   <button type="submit" class="btn btn-primary mb-2" id="submit-form-btn">commit search</button>
                 </div>
                 </form>
-                <!-- submit search form -->
+                <!-- submit search -->
 
 
               </div>
             </div>
           </div>
           <!-- Modal 2: search form -->
+               
       
-          <!-- Modal 3: feature popup -->
+          <!-- Modal 4: feature popup -->
           <div class="modal fade" id="feature-popup" tabindex="-1" aria-labelledby="feature-popupLabel" aria-hidden="true">
             <div class="modal-dialog">
               <div class="modal-content">
@@ -173,7 +174,7 @@
               </div>
             </div>
           </div>
-          <!-- Modal 3: feature popup -->
+          <!-- Modal 4: feature popup -->
           
 
           <!--test modal-->

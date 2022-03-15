@@ -20,18 +20,29 @@ app.use(express.json())
     return client
  }
 
+
  async function createFeature(insert_values, geom) {
     const client = connectToDB()
     try {
+        
         geometry = JSON.stringify(geom)
         console.log(geometry)
         console.log(insert_values)
         await client.connect()
         console.log('connected')
         await client.query('BEGIN')
-        await client.query("INSERT INTO test(col_1, geom) VALUES ($1, ST_SetSRID(ST_GeomFromGeoJSON($2), 27700))", [insert_values, `${geometry}`])
-        await client.query('COMMIT')
+        console.log(geom.type)
         
+        if (geom.type == 'Point') {
+            
+            await client.query("INSERT INTO point_search(email, reference, enquiry_type, searchtype, contract, geom) VALUES ($1, $2, $3, $4, $5, ST_SetSRID(ST_GeomFromGeoJSON($6), 27700))", [insert_values.email, insert_values.reference, insert_values.enquiryType, insert_values.searchSize, insert_values.contract, geometry])
+        } else {
+            await client.query("INSERT INTO linear_search(email, reference, enquiry_type, contract, geom) VALUES ($1, $2, $3, $4, ST_SetSRID(ST_GeomFromGeoJSON($5), 27700))", [insert_values.email, insert_values.reference, insert_values.enquiryType, insert_values.contract, geometry])
+
+        };
+        
+
+        await client.query('COMMIT')
         
     }
     catch (err) {
@@ -79,8 +90,8 @@ app.post('/database',  async (req, res) => {
     try {
         
         const reqJson = req.body;
-        console.log(reqJson)
-        await createFeature(reqJson.col_1, reqJson.geometry)
+        console.log(reqJson.geometry)
+        await createFeature(reqJson, reqJson.geometry)
         result.success=true;  
     }
     catch(e) {

@@ -10,7 +10,8 @@ import MousePosition from 'ol/control/MousePosition'
 import * as olCoordinate from 'ol/coordinate';
 import {defaults} from 'ol/interaction';
 import swal from 'sweetalert';
-import { baseMap, burst, test, streetL, ukbounds } from './layerConnections';
+import { baseMap, test, streetL, ukbounds, lineLayer, pointLayer } from './layerConnections';
+import GeoJSON from 'ol/format/GeoJSON';
 
 
 
@@ -24,6 +25,17 @@ proj4.defs(
 register(proj4);
 
 
+// Global variables
+let featureGeom
+let draw_on = false
+let selectedGeomType
+let featuresGeoJson
+const searchSizeDiv = document.getElementById('search-size');
+const contract = 'SWW'
+const layers = [baseMap, ukbounds, streetL, test, pointLayer, lineLayer]
+let draw
+
+
 let mapView = new View({
   center: [339861.7958798604, 100319.43155530083],
   zoom: 10,
@@ -31,15 +43,6 @@ let mapView = new View({
   
 
 });
-
-
-// Global variables
-let featureGeom
-let draw_on = false
-let selectedGeomType
-let featuresGeoJson
-
-
 // custom control
 
 class drawFeatureButton extends Control {
@@ -65,7 +68,8 @@ class drawFeatureButton extends Control {
   }
   
   startStopDraw() {
-     $('#featureSelect').modal('show');
+    map.removeInteraction(draw);
+    $('#featureSelect').modal('show');
   }
 };
 
@@ -73,9 +77,8 @@ class drawFeatureButton extends Control {
 const map = new Map({
   controls: defaultControls().extend([new drawFeatureButton()]), // adds drawing control button
   target: 'map',
-  layers: [baseMap, ukbounds, streetL, test, burst],
+  layers: layers,
   view: mapView,
-  //overlays: [overlay],
   interactions: defaults({ doubleClickZoom: false }) // disables double click zoom
 });
 
@@ -91,11 +94,21 @@ const drawLayer = new VectorL({
 map.addLayer(drawLayer)
 
 
+
 function initiateDraw(geomType) {
+  
+  const formDiv = document.getElementById('form-modal-select');
+  
+  if (geomType == 'Point') {
+    formDiv.append(searchSizeDiv)
+  } else {
+    searchSizeDiv.remove()
+
+  };
   
   console.log(geomType, 'type initiated');
   selectedGeomType = geomType
-   const draw = new Draw({
+   draw = new Draw({
     type: geomType,
     source: drawSource
     
@@ -117,23 +130,24 @@ function initiateDraw(geomType) {
     draw_on = true
   })
   draw.on('drawend', function(evt){
+    // executed at the end of a draw interaction 
     featureGeom = evt.feature.getGeometry().flatCoordinates;
     map.removeInteraction(draw)
 
     // evaluates the geometry type. If linestring and over 10k, an error alert will be activated
-  if(geomType =='LineString') {
-    if(evt.feature.getGeometry().getLength() > 10000) {
-      setTimeout(errorAlert, 500);
-      
-      
+    if(geomType =='LineString') {
+      if(evt.feature.getGeometry().getLength() > 10000) {
+        setTimeout(errorAlert, 500, 'Searches cannot exceed 10k');
+        
+        
+      } else {
+        $('#formselectmodal').modal('show')
+      }
+      console.log(evt.feature.getGeometry().getLength())
     } else {
       $('#formselectmodal').modal('show')
     }
-    console.log(evt.feature.getGeometry().getLength())
-  } else {
-    $('#formselectmodal').modal('show')
-  }
-  draw_on = false
+    draw_on = false
 })};
 
 
@@ -148,17 +162,25 @@ document.getElementById('point-btn').addEventListener('click', function() {
   initiateDraw.bind(this)('Point');
 });
 // 
-function geoQuery(fGeoJson) {
+function layerQuery(featureArray) {
+
+  // when user clicks on the map this function will be run.
+  // the features which are captured in the click event
+  // are loaded into the featureArray vaiable.
+  // Vhe forEach aray method below then iterates
+  // through them to build the popup tabs and display
+  //the feature information in them
+
   const getTab = document.getElementById('myTab')
   const getTabContent = document.getElementById('myTabContent')
   getTabContent.innerHTML = ''
   getTab.innerHTML = ''
 
   // the following lines of code build the tabs from the Geojson
-  fGeoJson.forEach((item, index) => {
+  featureArray.forEach((item, index) => {
     
 
-    let regexMatchTitle = fGeoJson[0].id.match(/.+?(?=\.\d+$)/);
+    let regexMatchTitle = featureArray[index].id.match(/.+?(?=\.\d+$)/);
 
     // activates the tab corresponding to the 0 index
     let activeTabTop
@@ -226,20 +248,15 @@ function geoQuery(fGeoJson) {
 });
 
 }
-$('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
-  var currId = $(e.target).attr("id");
-  
-  //just for demo
-  $('#lastTab').html(currId);
-  console.log(currId)
-})
+
 
 // 123test button
 document.getElementById('test-button').addEventListener('click', function() {
   console.log(document.querySelector('myTabContent'))
   
-  geoQuery.bind(this)(featuresGeoJson)
+  layerQuery.bind(this)(featuresGeoJson)
   console.log('draw on:', draw_on, selectedGeomType, featureGeom)
+  
   $('#testmodal').modal('show')
   $('#myTab a').click(function (e) {
     e.preventDefault()
@@ -249,57 +266,119 @@ document.getElementById('test-button').addEventListener('click', function() {
 
 
 
-function successAlert() {
+function successAlert(title='Search Successful') {
   swal({
-    title: "Search Successful!",
+    title: `${title}`,
     icon: "success",
     button: "OK",
   });
   
 }
 
-function errorAlert() {
+function errorAlert(text='Something Went wrong') {
   swal({
-    title: "Error!",
-    text: 'Searches cannot exceed 10k',
+    title: 'Error!',
+    text: `${text}`,
     icon: "error",
     button: "OK",
   });
   
 }
 
+
+
 // validate submit form and submit search event listener
 const saveButton = document.getElementById('form-1')
 saveButton.addEventListener('submit', function(event){
+
+  
   event.preventDefault()
   let emailAddress = document.getElementById('email-addr').value
   let reference = document.getElementById('reference').value
-  $('#formselectmodal').modal('hide')
+  let enquiryType = document.getElementById('select-enquiry-type').value
+  let searchSize = ''
+  
+  if (selectedGeomType == 'Point') {
+    searchSize = document.getElementById('select-search-size').value
 
-  setTimeout(successAlert, 500);
-  console.log(emailAddress, reference, featureGeom)
-  SaveDatatodb(featureGeom)
+  };
+  
+  $('#formselectmodal').modal('hide');
+
+  const attrs = {
+    "email": emailAddress,
+    "reference": reference,
+    "enquiryType": enquiryType,
+    "searchSize": searchSize,
+    "geometryType": selectedGeomType
+  }
+
+
+  
+  console.log(attrs.reference, attrs.email, 'heeerreee')
+  
+
+  SaveDatatodb(attrs)
   
 })
     
 
 
 
-async function SaveDatatodb(geometryArray) {
+async function SaveDatatodb(attrs) {
+  let insertFeature = ''
+
+  // gets the feature of the draw source and converts to valid geojson
+  let formatToGeojson = new GeoJSON()
+  let formattedGeojson = formatToGeojson.writeFeaturesObject(drawSource.getFeatures())
+  let geojsonGeometry = formattedGeojson.features[0].geometry
+  console.log(geojsonGeometry)
+
+  if (selectedGeomType == 'Point') {
+    insertFeature = JSON.stringify({
+      "email": attrs.email,
+      "reference": attrs.reference,
+      "enquiryType": attrs.enquiryType,
+      "searchSize": attrs.searchSize,
+      "contract": contract,
+      "geometry": geojsonGeometry
+      });
+
+  } else {
+    insertFeature = JSON.stringify({
+      "email": attrs.email,
+      "reference": attrs.reference,
+      "enquiryType": attrs.enquiryType,
+      "contract": contract,
+      "geometry": geojsonGeometry
+      });
+  };
+
+  // reformats the LineString as a MultiLineString
+  insertFeature = insertFeature.replace('LineString', 'MultiLineString').replace('[[', '[[[').replace(']]', ']]]')
+
+  console.log(insertFeature)
+
+  
   try {
     const result = await fetch('http://localhost:8111/database', {
       method: "POST",
       headers: {
         'Content-Type': 'application/json'
-      },
-
-      body: JSON.stringify({"col_1": "This is working!", "geometry": {"type": "Point", "coordinates": geometryArray}})
+      }, 
+      body: insertFeature
 
     });
-    console.log(result)
+    console.log(result.status)
+    if ( result.status == 200) {
+      setTimeout(successAlert, 500);
+    } else {
+      setTimeout(errorAlert, 500);
+    };
   }
   catch (err) {
     console.log(err)
+    setTimeout(errorAlert);
 
   } 
     
@@ -324,7 +403,7 @@ map.on('singleclick', (evt) => {
     evt.coordinate,
     viewResolution,
     'EPSG:27700',
-    {'INFO_FORMAT': 'application/json', 'QUERY_LAYERS': 'quickstats:street_lighting,quickstats:test', 'LAYERS':'quickstats:street_lighting,quickstats:test', 'FEATURE_COUNT': 10},
+    {'INFO_FORMAT': 'application/json', 'QUERY_LAYERS': 'quickstats:street_lighting,quickstats:linear_search,quickstats:point_search', 'LAYERS':'quickstats:street_lighting,quickstats:linear_search,quickstats:point_search', 'FEATURE_COUNT': 10},
 
   );
  
@@ -338,7 +417,7 @@ map.on('singleclick', (evt) => {
             
             console.log(jsonResp.features, 'nothing')
           } else { 
-            geoQuery.bind(this)(jsonResp.features)
+            layerQuery.bind(this)(jsonResp.features)
             console.log('draw on:', draw_on, selectedGeomType, featureGeom)
             $('#testmodal').modal('show')
             $('#myTab a').click(function (e) {

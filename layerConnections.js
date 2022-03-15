@@ -46,3 +46,23 @@ export const baseMap =  new TileLayer({
       
     }),
   });
+
+  export const pointLayer = new TileLayer({
+    source: new TileWMS({
+      url: 'http://localhost:8080/geoserver/wms',
+      params: {'LAYERS': 'quickstats:point_search', 'TILED': true},
+      serverType: 'geoserver',
+      transition: 0,
+      
+    }),
+  });
+
+  export const lineLayer = new TileLayer({
+    source: new TileWMS({
+      url: 'http://localhost:8080/geoserver/wms',
+      params: {'LAYERS': 'quickstats:linear_search', 'TILED': true},
+      serverType: 'geoserver',
+      transition: 0,
+      
+    }),
+  });
