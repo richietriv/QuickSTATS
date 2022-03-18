@@ -24,7 +24,7 @@ app.use(express.json())
  async function createFeature(insert_values, geom) {
     const client = connectToDB()
     try {
-        
+        const now = new Date()
         geometry = JSON.stringify(geom)
         console.log(geometry)
         console.log(insert_values)
@@ -32,10 +32,10 @@ app.use(express.json())
         console.log('connected')
         await client.query('BEGIN')
         console.log(geom.type)
-        
+
         if (geom.type == 'Point') {
             
-            await client.query("INSERT INTO point_search(email, reference, enquiry_type, searchtype, contract, geom) VALUES ($1, $2, $3, $4, $5, ST_SetSRID(ST_GeomFromGeoJSON($6), 27700))", [insert_values.email, insert_values.reference, insert_values.enquiryType, insert_values.searchSize, insert_values.contract, geometry])
+            await client.query("INSERT INTO point_search(email, reference, enquiry_type, searchtype, contract, geom, datetime_requested) VALUES ($1, $2, $3, $4, $5, ST_SetSRID(ST_GeomFromGeoJSON($6), 27700), $7)", [insert_values.email, insert_values.reference, insert_values.enquiryType, insert_values.searchSize, insert_values.contract, geometry, now])
         } else {
             await client.query("INSERT INTO linear_search(email, reference, enquiry_type, contract, geom) VALUES ($1, $2, $3, $4, ST_SetSRID(ST_GeomFromGeoJSON($5), 27700))", [insert_values.email, insert_values.reference, insert_values.enquiryType, insert_values.contract, geometry])
 
@@ -59,7 +59,7 @@ async function execute() {
     try {
         await client.connect()
         console.log('connected')
-        const the_query = await client.query("SELECT * FROM test")
+        const the_query = await client.query("SELECT * FROM point_search")
         console.table(the_query.rows)
         return(the_query.rows)
     
